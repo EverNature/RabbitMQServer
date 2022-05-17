@@ -2,30 +2,24 @@ package server;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ThreadPoolExecutor;
-
+import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
-import com.rabbitmq.client.AMQP.BasicProperties;
 
 public class RabbitMQServer {
 	private static final Logger LOGGER = LoggerFactory.getLogger(RabbitMQServer.class);
@@ -33,7 +27,6 @@ public class RabbitMQServer {
     final static String EXCHANGE_CLIENT = "distributor";
     final static String DLX_EXCHANGE_NAME = "deadLetter";
 	final static String DLX_QUEUE_NAME = "deadLetterQueue";
-//	final static Integer THREAD_NUMBER = 2;
     
     ConnectionFactory factory, factory2;
     ExecutorService executor, executor2;
@@ -80,7 +73,7 @@ public class RabbitMQServer {
 
             ConsumerClient consumer = new ConsumerClient(channelClient, executor);
             ConsumerCameras consumer2 = new ConsumerCameras(channelCameras, executor2);
-            boolean autoack = false;
+            boolean autoack = true; //CAMBIAR ESTO A FALSE PARA DAR EL TRATAMIENTO QUE QUERAMOS
             String tag = channelClient.basicConsume(DLX_QUEUE_NAME, autoack, consumer);
             String tag2 = channelCameras.basicConsume(queueName, autoack, consumer2);
 
@@ -160,11 +153,14 @@ public class RabbitMQServer {
 
 		ExecutorService executor;
     	Channel channel;
+    	RESTClient cliente;
 
 		public ConsumerCameras(Channel channel, ExecutorService executor) {
 			super(channel);
 			this.executor = executor;
 			this.channel = channel;
+	        
+	        cliente =new RESTClient();
 		}
 		
 		@Override
@@ -173,16 +169,13 @@ public class RabbitMQServer {
 			String message = new String(body, StandardCharsets.UTF_8);
 
 			try {
-                LOGGER.info(String.format("Received (channel %d) %s", channel.getChannelNumber(), new String(body)));
-
+                LOGGER.info(String.format("Received photo in (channel %d)", channel.getChannelNumber()));
+                
                 executor.submit(new Runnable() {
                     public void run() {
-                        try {
-                            Thread.sleep(1000);
-                            LOGGER.info(String.format("Processed %s", message));
-                        } catch (InterruptedException e) {
-                            LOGGER.warn(String.format("Interrupted %s", message));
-                        }
+                        byte[] photo = Base64.getDecoder().decode(message.getBytes());
+						String response = cliente.sendPhotos(photo);
+						LOGGER.info(String.format("Received response: %s", response));
                     }
                 });
             } catch (Exception e) {
