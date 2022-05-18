@@ -174,8 +174,21 @@ public class RabbitMQServer {
                 executor.submit(new Runnable() {
                     public void run() {
                         byte[] photo = Base64.getDecoder().decode(message.getBytes());
-						String response = cliente.sendPhotos(photo);
-						LOGGER.info(String.format("Received response: %s", response));
+						Result response = cliente.sendPhotos(photo);
+						if(response == null) {
+							LOGGER.info(String.format("No valid response received"));
+						}
+						else {
+							if(response.getSegmented()) {
+								for(Prediction prediction:response.getPrediction()) {
+									LOGGER.info(String.format("Detected in image: %s", prediction.getClase()));
+								}
+							}
+							else {
+								LOGGER.info(String.format("No animal detected in the image"));
+							}
+						}
+						
                     }
                 });
             } catch (Exception e) {
