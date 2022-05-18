@@ -73,7 +73,7 @@ public class RabbitMQServer {
 
             ConsumerClient consumer = new ConsumerClient(channelClient, executor);
             ConsumerCameras consumer2 = new ConsumerCameras(channelCameras, executor2);
-            boolean autoack = true; //CAMBIAR ESTO A FALSE PARA DAR EL TRATAMIENTO QUE QUERAMOS
+            boolean autoack = true; //CAMBIAR ESTO A FALSE PARA DAR EL TRATAMIENTO QUE QUERAMOS (HAZ LO DE ACK NACK PERRO)
             String tag = channelClient.basicConsume(DLX_QUEUE_NAME, autoack, consumer);
             String tag2 = channelCameras.basicConsume(queueName, autoack, consumer2);
 
