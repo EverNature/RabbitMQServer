@@ -26,22 +26,20 @@ public class RESTClient {
 			    .build();
 	}
 	
-	public String sendPhotos(byte[] photo) {
+	public Result sendPhotos(byte[] photo) {
 		StreamDataBodyPart formPart = new StreamDataBodyPart("file", new ByteArrayInputStream(photo));
 		MultiPart multipartEntity = new MultiPart();
 		multipartEntity.bodyPart(formPart);
 		
 		WebTarget target = client.target(urlRestService);
 		Response response = target.request().post(Entity.entity(multipartEntity, MediaType.MULTIPART_FORM_DATA_TYPE));
-		String res;
+		Result result;
 		if (response.getStatus() == 200) {
-			Result result;
 			Gson gson = new GsonBuilder().setPrettyPrinting().create();
 			result = gson.fromJson(response.readEntity(String.class), Result.class);
-			res = result.getPrediction().get(0).getClase();
 		} else {
-			res = "La llamada no ha sido correcta";
+			result = null;
 		}
-		return res;
+		return result;
 	}
 }
