@@ -1,8 +1,10 @@
 package server;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.FileSystems;
 
 import javax.ws.rs.ProcessingException;
@@ -15,6 +17,8 @@ import org.json.JSONTokener;
 import org.json.simple.JSONValue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class JSONValidation {
 	public static void isJsonValid(Result result) throws ProcessingException, IOException, ValidationException {
@@ -22,13 +26,16 @@ public class JSONValidation {
 		File schema = new File(FileSystems.getDefault().getPath("json-schema", "schema.json").toString());
 
 		JSONTokener tokener = new JSONTokener(new FileInputStream(schema));
-		JSONObject josnSchema = new JSONObject(tokener);
+		JSONObject jsonSchema = new JSONObject(tokener);
 
 		// json data
-		JSONObject jsonDataJson = (JSONObject) JSONValue.parse(new ObjectMapper().writeValueAsString(result));
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		InputStream targetStream = new ByteArrayInputStream(gson.toJson(result).getBytes());
+		JSONTokener jsonDataTokener = new JSONTokener(targetStream);
+        JSONObject jsonDataJson = new JSONObject(jsonDataTokener);
 
 		// validate schema
-		Schema schemaJson = SchemaLoader.load(josnSchema);
+		Schema schemaJson = SchemaLoader.load(jsonSchema);
 		schemaJson.validate(jsonDataJson);
 	}
 }
