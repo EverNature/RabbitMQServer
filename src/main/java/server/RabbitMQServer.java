@@ -167,33 +167,40 @@ public class RabbitMQServer {
 								}
 								else {
 									JSONValidation.isJsonValid(response);
+									LOGGER.info(String.format("Valid JSON received"));
 									if(response.getSegmented()) {
 										int i = 0;
 										for(Prediction prediction:response.getPrediction()) {
 											LOGGER.info(String.format("Detected in image: %s", prediction.getClase()));
 											
 											InputStream is2 = new ByteArrayInputStream(Base64.getDecoder().decode(prediction.getImage().getBytes()));
-					                        BufferedImage newBi = ImageIO.read(is2);
-											String uuid = ((LongString) properties.getHeaders().get("uuid")).toString();
-											String filename = ((LongString) properties.getHeaders().get("filename")).toString();
-				                        	File file = new File(FileSystems.getDefault().getPath(PHOTOS_FOLDER, (uuid + "_" + filename + "_" + i + "_" + new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new java.util.Date()) + ".jpg")).toString());
-					                        ImageIO.write(newBi, "jpg", file);
-					                        is2.close();
+											if(invasiveSpecies.indexOf(prediction.getClase()) != -1)
+											{
+												LOGGER.info(String.format("Invasive animal detected"));
+												
+												BufferedImage newBi = ImageIO.read(is2);
+												String uuid = ((LongString) properties.getHeaders().get("uuid")).toString();
+												String filename = ((LongString) properties.getHeaders().get("filename")).toString();
+					                        	File file = new File(FileSystems.getDefault().getPath(PHOTOS_FOLDER, (uuid + "_" + filename + "_" + i + "_" + new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new java.util.Date()) + ".jpg")).toString());
+						                        ImageIO.write(newBi, "jpg", file);
+						                        is2.close();
+						                        
+						                        NodeClass nc =  new NodeClass();
+						                        nc.setGuid(Integer.parseInt(uuid));
+						                        nc.setImagen(file.getAbsolutePath());
+						                        nc.setSpecies(prediction.getClase());
+						                        if(RESTClient.sendToNodeTelegram(nc)) {
+						                        	LOGGER.info(String.format("Prediction sent to Telegram group"));
+						                        }
+						                        else { LOGGER.info(String.format("Error in sending to Telegram group")); }
+						                        
+						                        if(RESTClient.sendToNodeMail(nc)) {
+						                        	LOGGER.info(String.format("Prediction sent to Gmail"));
+						                        }
+						                        else { LOGGER.info(String.format("Error in sending to Gmail")); }
+						                        file.delete();
+											} else {LOGGER.info(String.format("Not an invasive species"));}
 					                        
-					                        NodeClass nc =  new NodeClass();
-					                        nc.setGuid(Integer.parseInt(uuid));
-					                        nc.setImagen(file.getAbsolutePath());
-					                        nc.setSpecies(prediction.getClase());
-					                        if(RESTClient.sendToNodeTelegram(nc)) {
-					                        	LOGGER.info(String.format("Prediction sent to Telegram group"));
-					                        }
-					                        else { LOGGER.info(String.format("Error in sending to Telegram group")); }
-					                        
-					                        if(RESTClient.sendToNodeMail(nc)) {
-					                        	LOGGER.info(String.format("Prediction sent to Gmail"));
-					                        }
-					                        else { LOGGER.info(String.format("Error in sending to Gmail")); }
-					                        file.delete();
 					                        i++;
 										}
 									}
