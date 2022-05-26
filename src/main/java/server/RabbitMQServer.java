@@ -22,7 +22,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import javax.imageio.ImageIO;
+import javax.ws.rs.ProcessingException;
 
+import org.everit.json.schema.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -111,7 +113,6 @@ public class RabbitMQServer {
 
 		ExecutorService executor;
     	Channel channel;
-    	RESTClient cliente;
     	final static String PHOTOS_FOLDER = "photos";
         boolean reprocesar = false;
 		boolean multiple = false;
@@ -122,8 +123,6 @@ public class RabbitMQServer {
 			this.executor = executor;
 			this.channel = channel;
 			this.invasiveSpecies = invasiveSpecies;
-	        
-	        cliente =new RESTClient();
 		}
 		
 		@Override
@@ -162,11 +161,12 @@ public class RabbitMQServer {
 	                        }
 	                        else {
 	                        	is.close();
-								Result response = cliente.sendPhotos(photo);
+								Result response = RESTClient.sendPhotos(photo);
 								if(response == null) {
 									LOGGER.info(String.format("No valid response received"));
 								}
 								else {
+									JSONValidation.isJsonValid(response);
 									if(response.getSegmented()) {
 										int i = 0;
 										for(Prediction prediction:response.getPrediction()) {
@@ -176,9 +176,24 @@ public class RabbitMQServer {
 					                        BufferedImage newBi = ImageIO.read(is2);
 											String uuid = ((LongString) properties.getHeaders().get("uuid")).toString();
 											String filename = ((LongString) properties.getHeaders().get("filename")).toString();
-				                        	File file = new File(FileSystems.getDefault().getPath(PHOTOS_FOLDER).toString() + "\\" + uuid + "_" + filename + "_" + i + "_" + new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new java.util.Date()) + ".jpg");
+				                        	File file = new File(FileSystems.getDefault().getPath(PHOTOS_FOLDER, (uuid + "_" + filename + "_" + i + "_" + new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new java.util.Date()) + ".jpg")).toString());
 					                        ImageIO.write(newBi, "jpg", file);
 					                        is2.close();
+					                        
+					                        NodeClass nc =  new NodeClass();
+					                        nc.setGuid(Integer.parseInt(uuid));
+					                        nc.setImagen(file.getAbsolutePath());
+					                        nc.setSpecies(prediction.getClase());
+					                        if(RESTClient.sendToNodeTelegram(nc)) {
+					                        	LOGGER.info(String.format("Prediction sent to Telegram group"));
+					                        }
+					                        else { LOGGER.info(String.format("Error in sending to Telegram group")); }
+					                        
+					                        if(RESTClient.sendToNodeMail(nc)) {
+					                        	LOGGER.info(String.format("Prediction sent to Gmail"));
+					                        }
+					                        else { LOGGER.info(String.format("Error in sending to Gmail")); }
+					                        file.delete();
 					                        i++;
 										}
 									}
@@ -189,9 +204,11 @@ public class RabbitMQServer {
 	                        }
 
 							//channel.basicAck(envelope.getDeliveryTag(), false);
-						} catch (IOException | NoSuchAlgorithmException e) {
+						} catch (IOException | NoSuchAlgorithmException | ProcessingException e) {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
+						} catch (ValidationException e) {
+							LOGGER.info(String.format("Incorrect JSON formatting"));
 						}
                     }
                     
