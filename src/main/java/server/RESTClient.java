@@ -17,16 +17,12 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 public class RESTClient {
-	String urlRestService = "http://localhost:8080/predict";
-	Client client;
 	
-	public RESTClient() {
-		client = ClientBuilder.newBuilder()
+	public static Result sendPhotos(byte[] photo) {
+		String urlRestService = "http://localhost:8080/predict";
+		Client client = ClientBuilder.newBuilder()
 			    .register(MultiPartFeature.class)
 			    .build();
-	}
-	
-	public Result sendPhotos(byte[] photo) {
 		StreamDataBodyPart formPart = new StreamDataBodyPart("file", new ByteArrayInputStream(photo));
 		MultiPart multipartEntity = new MultiPart();
 		multipartEntity.bodyPart(formPart);
@@ -41,5 +37,31 @@ public class RESTClient {
 			result = null;
 		}
 		return result;
+	}
+	
+	public static boolean sendToNodeTelegram(NodeClass nc) {
+		String urlRestService = "http://localhost:1880/EnviarTelegram";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(nc)));
+		if (response.getStatus() == 200) {
+			return true;
+		} else {
+			return false;
+		}	
+	}
+	
+	public static boolean sendToNodeMail(NodeClass nc) {
+		String urlRestService = "http://localhost:1880/EnviarCorreo";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(nc)));
+		if (response.getStatus() == 200) {
+			return true;
+		} else {
+			return false;
+		}	
 	}
 }
