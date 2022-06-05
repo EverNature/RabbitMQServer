@@ -64,4 +64,17 @@ public class RESTClient {
 			return false;
 		}	
 	}
+
+	public static boolean sendToNodeDataBase(RecordDTO rDto) {
+		String urlRestService = "http://localhost:1880/GuardarDatos";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(rDto)));
+		if (response.getStatus() == 200) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 }
