@@ -2,7 +2,7 @@ package server;
 
 public class NodeClass {
 	String species;
-	Integer guid;
+	String guid;
 	String imagen;
 	
 	public NodeClass() {
@@ -16,11 +16,11 @@ public class NodeClass {
 		this.species = species;
 	}
 
-	public Integer getGuid() {
+	public String getGuid() {
 		return guid;
 	}
 
-	public void setGuid(Integer guid) {
+	public void setGuid(String guid) {
 		this.guid = guid;
 	}
 
