@@ -234,6 +234,7 @@ public class RabbitMQServer {
 									}
 									else {
 										LOGGER.info(String.format("No animal detected in the image"));
+										channel.basicAck(envelope.getDeliveryTag(), multiple);
 									}
 								}
 	                        }
