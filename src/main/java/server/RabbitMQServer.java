@@ -48,8 +48,6 @@ public class RabbitMQServer {
     
     ConnectionFactory factory;
     ExecutorService executor;
-    
-    List<String> invasiveSpecies;
 
     public RabbitMQServer() {
     	factory = new ConnectionFactory();
@@ -71,8 +69,6 @@ public class RabbitMQServer {
 		
         
         executor = Executors.newCachedThreadPool();
-        invasiveSpecies = new ArrayList<>();
-        invasiveSpecies.add("AFRICAN OYSTER CATCHER");  // Esto hay que sustituirlo por llamada a base de datos y tal
         
     }
     
@@ -92,7 +88,7 @@ public class RabbitMQServer {
 			channelCameras.queueDeclare(QUEUE_CAMERAS, true, false, false, arguments);
             channelCameras.queueBind(QUEUE_CAMERAS, EXCHANGE_CAMERAS, "");
 
-            ConsumerCameras consumer = new ConsumerCameras(channelCameras, executor, invasiveSpecies);
+            ConsumerCameras consumer = new ConsumerCameras(channelCameras, executor);
             boolean autoack = false;
             String tag = channelCameras.basicConsume(QUEUE_CAMERAS, autoack, consumer);
 
@@ -133,13 +129,11 @@ public class RabbitMQServer {
     	final static String PHOTOS_FOLDER = "photos";
         boolean reprocesar = false;
 		boolean multiple = false;
-		List<String> invasiveSpecies;
 
-		public ConsumerCameras(Channel channel, ExecutorService executor, List<String> invasiveSpecies) {
+		public ConsumerCameras(Channel channel, ExecutorService executor) {
 			super(channel);
 			this.executor = executor;
 			this.channel = channel;
-			this.invasiveSpecies = invasiveSpecies;
 		}
 		
 		@Override
@@ -206,7 +200,10 @@ public class RabbitMQServer {
 					                        pDto.setIsPredicted(prediction.getPredicted());
 					                        pDto.setMessage(prediction.getMsg());
 					                        rDto.addPrediction(pDto);
-											if(invasiveSpecies.indexOf(prediction.getClase()) != -1)
+					                        
+					                        AnimalIsInvasor animalIsInvasor = new AnimalIsInvasor();
+					                        animalIsInvasor.setAnimalName(prediction.getClase());
+											if(RESTClient.checkIfInvasive(animalIsInvasor))
 											{
 												LOGGER.info(String.format("Invasive animal detected"));
 												
