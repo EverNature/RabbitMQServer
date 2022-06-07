@@ -8,7 +8,7 @@ public class PredictionDTO {
     private String image;
 
 	public PredictionDTO(){
-    	
+    	super();
     }   
 	
     public String getImage() {

@@ -18,6 +18,10 @@ import com.google.gson.GsonBuilder;
 
 public class RESTClient {
 	
+	private RESTClient() {
+		
+	}
+	
 	public static Result sendPhotos(byte[] photo) {
 		String urlRestService = "https://predictor.evern.eus/predict";
 		Client client = ClientBuilder.newBuilder()
@@ -45,11 +49,13 @@ public class RESTClient {
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		Response response = target.request().post(Entity.json(gson.toJson(nc)));
+		Boolean toReturn;
 		if (response.getStatus() == 200) {
-			return true;
+			toReturn = true;
 		} else {
-			return false;
-		}	
+			toReturn = false;
+		}
+		return toReturn;
 	}
 	
 	public static boolean sendToNodeMail(NodeClass nc) {
@@ -58,11 +64,13 @@ public class RESTClient {
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		Response response = target.request().post(Entity.json(gson.toJson(nc)));
+		Boolean toReturn;
 		if (response.getStatus() == 200) {
-			return true;
+			toReturn = true;
 		} else {
-			return false;
-		}	
+			toReturn = false;
+		}
+		return toReturn;
 	}
 
 	public static boolean sendToNodeDataBase(RecordDTO rDto) {
@@ -71,11 +79,13 @@ public class RESTClient {
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		Response response = target.request().post(Entity.json(gson.toJson(rDto)));
+		Boolean toReturn;
 		if (response.getStatus() == 200) {
-			return true;
+			toReturn = true;
 		} else {
-			return false;
+			toReturn = false;
 		}
+		return toReturn;
 	}
 	
 	public static boolean checkIfInvasive(AnimalIsInvasor aii) {
@@ -84,12 +94,14 @@ public class RESTClient {
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		Response response = target.request().post(Entity.json(gson.toJson(aii)));
+		Boolean toReturn;
 		if (response.getStatus() == 200) {
 			String output = response.readEntity(String.class);
 			AnimalIsInvasor aii2 = gson.fromJson(output, AnimalIsInvasor.class);
-			return aii2.isInvasor();
+			toReturn = aii2.isInvasor();
 		} else {
-			return false;
+			toReturn = false;
 		}
+		return toReturn;
 	}
 }

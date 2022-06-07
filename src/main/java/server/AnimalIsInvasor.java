@@ -5,6 +5,7 @@ public class AnimalIsInvasor {
     boolean isInvasor;
     
 	public AnimalIsInvasor() {
+		super();
 	}
 
 	public String getAnimalName() {

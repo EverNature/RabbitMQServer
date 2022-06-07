@@ -11,6 +11,7 @@ public class Prediction {
 	String image;
 	
 	public Prediction() {
+		super();
 	}
 
 	public String getClase() {

@@ -19,6 +19,11 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 public class JSONValidation {
+	
+	private JSONValidation() {
+		super();
+	}
+	
 	public static void isJsonValid(Result result) throws ProcessingException, IOException, ValidationException {
 		
 		File schema = new File(FileSystems.getDefault().getPath("json-schema", "schema.json").toString());

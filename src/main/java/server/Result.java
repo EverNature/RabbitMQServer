@@ -13,6 +13,7 @@ public class Result {
 	String fullImage;
 	
 	public Result() {
+		super();
 	}
 
 	public List<Prediction> getPrediction() {

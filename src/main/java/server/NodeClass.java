@@ -6,6 +6,7 @@ public class NodeClass {
 	String imagen;
 	
 	public NodeClass() {
+		super();
 	}
 
 	public String getSpecies() {
