@@ -19,7 +19,7 @@ import com.google.gson.GsonBuilder;
 public class RESTClient {
 	
 	public static Result sendPhotos(byte[] photo) {
-		String urlRestService = "http://localhost:8080/predict";
+		String urlRestService = "https://predictor.evern.eus/predict";
 		Client client = ClientBuilder.newBuilder()
 			    .register(MultiPartFeature.class)
 			    .build();
@@ -73,6 +73,21 @@ public class RESTClient {
 		Response response = target.request().post(Entity.json(gson.toJson(rDto)));
 		if (response.getStatus() == 200) {
 			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	public static boolean checkIfInvasive(AnimalIsInvasor aii) {
+		String urlRestService = "http://localhost:1880/esInvasor";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(aii)));
+		if (response.getStatus() == 200) {
+			String output = response.readEntity(String.class);
+			AnimalIsInvasor aii2 = gson.fromJson(output, AnimalIsInvasor.class);
+			return aii2.isInvasor();
 		} else {
 			return false;
 		}
