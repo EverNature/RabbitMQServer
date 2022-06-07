@@ -17,31 +17,79 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 public class RESTClient {
-	String urlRestService = "http://localhost:8080/predict";
-	Client client;
 	
-	public RESTClient() {
-		client = ClientBuilder.newBuilder()
+	public static Result sendPhotos(byte[] photo) {
+		String urlRestService = "https://predictor.evern.eus/predict";
+		Client client = ClientBuilder.newBuilder()
 			    .register(MultiPartFeature.class)
 			    .build();
-	}
-	
-	public String sendPhotos(byte[] photo) {
 		StreamDataBodyPart formPart = new StreamDataBodyPart("file", new ByteArrayInputStream(photo));
 		MultiPart multipartEntity = new MultiPart();
 		multipartEntity.bodyPart(formPart);
 		
 		WebTarget target = client.target(urlRestService);
 		Response response = target.request().post(Entity.entity(multipartEntity, MediaType.MULTIPART_FORM_DATA_TYPE));
-		String res;
+		Result result;
 		if (response.getStatus() == 200) {
-			Result result;
 			Gson gson = new GsonBuilder().setPrettyPrinting().create();
 			result = gson.fromJson(response.readEntity(String.class), Result.class);
-			res = result.getPrediction().get(0).getClase();
 		} else {
-			res = "La llamada no ha sido correcta";
+			result = null;
 		}
-		return res;
+		return result;
+	}
+	
+	public static boolean sendToNodeTelegram(NodeClass nc) {
+		String urlRestService = "http://localhost:1880/EnviarTelegram";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(nc)));
+		if (response.getStatus() == 200) {
+			return true;
+		} else {
+			return false;
+		}	
+	}
+	
+	public static boolean sendToNodeMail(NodeClass nc) {
+		String urlRestService = "http://localhost:1880/EnviarCorreo";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(nc)));
+		if (response.getStatus() == 200) {
+			return true;
+		} else {
+			return false;
+		}	
+	}
+
+	public static boolean sendToNodeDataBase(RecordDTO rDto) {
+		String urlRestService = "http://localhost:1880/GuardarDatos";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(rDto)));
+		if (response.getStatus() == 200) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	public static boolean checkIfInvasive(AnimalIsInvasor aii) {
+		String urlRestService = "http://localhost:1880/esInvasor";
+		Client client = ClientBuilder.newBuilder().build();
+		WebTarget target = client.target(urlRestService);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Response response = target.request().post(Entity.json(gson.toJson(aii)));
+		if (response.getStatus() == 200) {
+			String output = response.readEntity(String.class);
+			AnimalIsInvasor aii2 = gson.fromJson(output, AnimalIsInvasor.class);
+			return aii2.isInvasor();
+		} else {
+			return false;
+		}
 	}
 }
