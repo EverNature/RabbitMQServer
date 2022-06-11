@@ -2,7 +2,7 @@ package server;
 
 public class AnimalIsInvasor {
     String animalName;
-    boolean isInvasor;
+    boolean invasor;
     
 	public AnimalIsInvasor() {
 		super();
@@ -17,10 +17,10 @@ public class AnimalIsInvasor {
 	}
 
 	public boolean isInvasor() {
-		return isInvasor;
+		return invasor;
 	}
 
 	public void setInvasor(boolean isInvasor) {
-		this.isInvasor = isInvasor;
+		this.invasor = isInvasor;
 	}
 }

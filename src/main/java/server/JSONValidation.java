@@ -26,7 +26,7 @@ public class JSONValidation {
 	
 	public static void isJsonValid(Result result) throws ProcessingException, IOException, ValidationException {
 		
-		File schema = new File(FileSystems.getDefault().getPath("json-schema", "schema.json").toString());
+		File schema = new File(FileSystems.getDefault().getPath("resources", "json-schema", "schema.json").toString());
 
 		JSONTokener tokener = new JSONTokener(new FileInputStream(schema));
 		JSONObject jsonSchema = new JSONObject(tokener);

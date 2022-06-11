@@ -9,13 +9,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
@@ -42,29 +41,28 @@ import com.rabbitmq.client.LongString;
 
 public class RabbitMQServer {
 	private static final Logger LOGGER = LoggerFactory.getLogger(RabbitMQServer.class);
-	final static String EXCHANGE_CAMERAS = "cameras";
-	final static String QUEUE_CAMERAS = "queue_camera";
-    final static String DLX_EXCHANGE_NAME = "deadLetter";
+	static final String EXCHANGE_CAMERAS = "cameras";
+	static final String QUEUE_CAMERAS = "queue_camera";
+    static final String DLX_EXCHANGE_NAME = "deadLetter";
+    boolean stop;
     
     ConnectionFactory factory;
     ExecutorService executor;
 
     public RabbitMQServer() {
+    	stop = false;
     	factory = new ConnectionFactory();
-    	InputStream input;
-		try {
-			input = new FileInputStream("conf.properties");
+		try (InputStream input = new FileInputStream(FileSystems.getDefault().getPath("resources", "conf.properties").toString())) {
+    	//try (InputStream input = this.getClass().getClassLoader().getResourceAsStream("resources/conf.properties")) {
 			Properties prop = new Properties();
-
 	        prop.load(input);
 	        factory.setHost(prop.getProperty("host"));
 	        factory.setUsername(prop.getProperty("username"));
 	        factory.setPassword(prop.getProperty("password"));
-	        input.close();
 		} catch (FileNotFoundException e) {
-			e.printStackTrace();
+			LOGGER.error("FileNotFoundException happened");
 		} catch (IOException e) {
-			e.printStackTrace();
+			LOGGER.error("IOException happened at connection");
 		}
 		
         
@@ -74,64 +72,60 @@ public class RabbitMQServer {
     
     public void suscribe() {
 
-        Channel channelCameras = null;
-        try {
-        	
-        	Connection connection = factory.newConnection();
-        	channelCameras = connection.createChannel();
-        	channelCameras.exchangeDeclare(EXCHANGE_CAMERAS, "fanout", true, false, false, null);
-        	channelCameras.exchangeDeclare(DLX_EXCHANGE_NAME, "fanout", true, false, false, null);
-        	
-        	Map<String,Object> arguments = new HashMap<>();
-			arguments.put("x-dead-letter-exchange", DLX_EXCHANGE_NAME);
+        String tag = null;
 
-			channelCameras.queueDeclare(QUEUE_CAMERAS, true, false, false, arguments);
-            channelCameras.queueBind(QUEUE_CAMERAS, EXCHANGE_CAMERAS, "");
+        try (Connection connection = factory.newConnection()){
+        	try (Channel channelCameras = connection.createChannel()) {
+        		channelCameras.exchangeDeclare(EXCHANGE_CAMERAS, "fanout", true, false, false, null);
+            	channelCameras.exchangeDeclare(DLX_EXCHANGE_NAME, "fanout", true, false, false, null);
+            	
+            	Map<String,Object> arguments = new HashMap<>();
+    			arguments.put("x-dead-letter-exchange", DLX_EXCHANGE_NAME);
 
-            ConsumerCameras consumer = new ConsumerCameras(channelCameras, executor);
-            boolean autoack = false;
-            String tag = channelCameras.basicConsume(QUEUE_CAMERAS, autoack, consumer);
+    			channelCameras.queueDeclare(QUEUE_CAMERAS, true, false, false, arguments);
+                channelCameras.queueBind(QUEUE_CAMERAS, EXCHANGE_CAMERAS, "");
 
-            LOGGER.info(" [*] Waiting for messages. To exit press Enter");
-            
-            synchronized (this) {
-                try {
-                    this.wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                ConsumerCameras consumer = new ConsumerCameras(channelCameras, executor);
+                boolean autoack = false;
+                tag = channelCameras.basicConsume(QUEUE_CAMERAS, autoack, consumer);
+
+                LOGGER.info(" [*] Waiting for messages. To exit press Enter");
+                
+                synchronized (this) {
+                	while(!stop) {
+                		this.wait();
+                	}
                 }
-            }
-            channelCameras.basicCancel(tag);
-            channelCameras.close();
-            connection.close();
-            
-            executor.shutdown();
-    		try {
-    			executor.awaitTermination(200, TimeUnit.SECONDS);
-    		} catch (InterruptedException e) {
-    			e.printStackTrace();
-    		}
 
+                executor.shutdown();
+                executor.awaitTermination(200, TimeUnit.SECONDS);
+        	}
+        } catch (NullPointerException e) {
+        	LOGGER.error("NullPointerException has happened");
         } catch (IOException | TimeoutException e) {
-
-            e.printStackTrace();
-        }
+        	LOGGER.error("IOException | TimeoutException happened");
+        } catch (InterruptedException e) {
+        	LOGGER.error("InterruptedException happened");
+        	Thread.currentThread().interrupt();
+		}
     }
     
     public synchronized void stop() {
-        this.notify();
+    	stop = true;
+        this.notifyAll();
     }
     
     public class ConsumerCameras extends DefaultConsumer {
 
 		ExecutorService executor;
     	Channel channel;
-    	final static String PHOTOS_FOLDER = "photos";
+    	String photosFolder;
         boolean reprocesar = false;
 		boolean multiple = false;
 
 		public ConsumerCameras(Channel channel, ExecutorService executor) {
 			super(channel);
+			photosFolder = FileSystems.getDefault().getPath("resources", "photos").toString();
 			this.executor = executor;
 			this.channel = channel;
 		}
@@ -140,10 +134,9 @@ public class RabbitMQServer {
 		public void handleDelivery(String consumerTag, Envelope envelope, BasicProperties properties, byte[] body)
 				throws IOException {
 			String message = new String(body, StandardCharsets.UTF_8);
-
+			LOGGER.info(String.format("Received photo in (channel %d)", channel.getChannelNumber()));
+			
 			try {
-                LOGGER.info(String.format("Received photo in (channel %d)", channel.getChannelNumber()));
-                
                 executor.submit(new Runnable() {
                     public void run() {
 						try {
@@ -153,11 +146,11 @@ public class RabbitMQServer {
 				            String hash = ((LongString) properties.getHeaders().get("hash")).toString();
 				            
 				            if(hash.equals(new String(messageDigest.digest()))) {
-	                        	LOGGER.info(String.format("Image arrived correctly"));
+	                        	LOGGER.info("Image arrived correctly");
 	                        }
 	                        else {
 	                        	channel.basicNack(envelope.getDeliveryTag(), multiple, reprocesar);
-	                        	LOGGER.info(String.format("Image suffered changes when since original"));
+	                        	LOGGER.info("Image suffered changes since original");
 	                        }
 				            
 							byte[] photo = Base64.getDecoder().decode(message.getBytes());
@@ -166,7 +159,7 @@ public class RabbitMQServer {
 	                        BufferedImage newB = ImageIO.read(is);
 	                        
 	                        if(newB == null) {
-	                        	LOGGER.info(String.format("Unsupported format"));
+	                        	LOGGER.info("Unsupported format");
 	                        	channel.basicAck(envelope.getDeliveryTag(), multiple);
 	                        	is.close();
 	                        }
@@ -174,12 +167,12 @@ public class RabbitMQServer {
 	                        	is.close();
 								Result response = RESTClient.sendPhotos(photo);
 								if(response == null) {
-									LOGGER.info(String.format("No valid response received"));
+									LOGGER.info("No valid response received");
 								}
 								else {
 									JSONValidation.isJsonValid(response);
-									LOGGER.info(String.format("Valid JSON received"));
-									if(response.getSegmented()) {
+									LOGGER.info("Valid JSON received");
+									if(Boolean.TRUE.equals(response.getSegmented())) {
 										int i = 0;
 										String cameraId = ((LongString) properties.getHeaders().get("camera_id")).toString();
 										String filename = ((LongString) properties.getHeaders().get("filename")).toString();
@@ -195,7 +188,7 @@ public class RabbitMQServer {
 											
 											PredictionDTO pDto = new PredictionDTO();
 					                        pDto.setImage(prediction.getImage());
-					                        pDto.setConfidence(Float.parseFloat(prediction.getConfidence()));
+					                        pDto.setConfidence(Float.parseFloat(prediction.getConfidence())*100);
 					                        pDto.setDetectedAnimal(prediction.getClase());
 					                        pDto.setIsPredicted(prediction.getPredicted());
 					                        pDto.setMessage(prediction.getMsg());
@@ -205,11 +198,11 @@ public class RabbitMQServer {
 					                        animalIsInvasor.setAnimalName(prediction.getClase());
 											if(RESTClient.checkIfInvasive(animalIsInvasor))
 											{
-												LOGGER.info(String.format("Invasive animal detected"));
+												LOGGER.info("Invasive animal detected");
 												
 												BufferedImage newBi = ImageIO.read(is2);
 												String uuid = UUID.randomUUID().toString();
-					                        	File file = new File(FileSystems.getDefault().getPath(PHOTOS_FOLDER, (cameraId + "_" + filename + "_" + i + "_" + new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new java.util.Date()) + ".jpg")).toString());
+					                        	File file = new File(FileSystems.getDefault().getPath(photosFolder, (cameraId + "_" + filename + "_" + i + "_" + new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new java.util.Date()) + ".jpg")).toString());
 						                        ImageIO.write(newBi, "jpg", file);
 						                        is2.close();
 						                        
@@ -220,8 +213,8 @@ public class RabbitMQServer {
 
 						                        sendToSuscribers(nc);
 						                        
-						                        file.delete();
-											} else {LOGGER.info(String.format("Not an invasive species"));}
+						                        Files.delete(file.toPath());
+											} else {LOGGER.info("Not an invasive species");}
 					                        
 					                        i++;
 										}
@@ -230,44 +223,48 @@ public class RabbitMQServer {
 				                        channel.basicAck(envelope.getDeliveryTag(), multiple);
 									}
 									else {
-										LOGGER.info(String.format("No animal detected in the image"));
+										LOGGER.info("No animal detected in the image");
 										channel.basicAck(envelope.getDeliveryTag(), multiple);
 									}
 								}
 	                        }
 						} catch (IOException | NoSuchAlgorithmException | ProcessingException e) {
-							e.printStackTrace();
+							LOGGER.error("IOException | NoSuchAlgorithmException | ProcessingException happened");
+							try {
+								channel.basicNack(envelope.getDeliveryTag(), multiple, true);
+							} catch (IOException e1) {
+								LOGGER.error("IOException has happened");
+							}
 						} catch (ValidationException e) {
-							LOGGER.info(String.format("Incorrect JSON formatting"));
+							LOGGER.info("Incorrect JSON formatting");
 						}
                     }
 
                 });
 
             } catch (Exception e) {
-                LOGGER.error("", e);
-                e.printStackTrace();
+            	LOGGER.error("Exception happened");
             }	
 		}
 		
 	    public void sendToSuscribers(NodeClass nc)
 	    {
 	    	if(RESTClient.sendToNodeTelegram(nc)) {
-	        	LOGGER.info(String.format("Prediction sent to Telegram group"));
+	        	LOGGER.info("Prediction sent to Telegram group");
 	        }
-	        else { LOGGER.info(String.format("Error in sending to Telegram group")); }
+	        else { LOGGER.info("Error in sending to Telegram group"); }
 	        
 	        if(RESTClient.sendToNodeMail(nc)) {
-	        	LOGGER.info(String.format("Prediction sent to Gmail"));
+	        	LOGGER.info("Prediction sent to Gmail");
 	        }
-	        else { LOGGER.info(String.format("Error in sending to Gmail")); }
+	        else { LOGGER.info("Error in sending to Gmail"); }
 	    }
 	    
 	    private void sendToDatabase(RecordDTO rDto) {
 	    	if(RESTClient.sendToNodeDataBase(rDto)) {
-	        	LOGGER.info(String.format("Prediction sent for storage in DB"));
+	        	LOGGER.info("Prediction sent for storage in DB");
 	        }
-	        else { LOGGER.info(String.format("Error in sending to DB")); }
+	        else { LOGGER.info("Error in sending to DB"); }
 		}
     }
     

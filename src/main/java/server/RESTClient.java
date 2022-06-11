@@ -23,7 +23,7 @@ public class RESTClient {
 	}
 	
 	public static Result sendPhotos(byte[] photo) {
-		String urlRestService = "https://predictor.evern.eus/predict";
+		String urlRestService = "https://ia.evern.eus/predict";
 		Client client = ClientBuilder.newBuilder()
 			    .register(MultiPartFeature.class)
 			    .build();
@@ -44,7 +44,7 @@ public class RESTClient {
 	}
 	
 	public static boolean sendToNodeTelegram(NodeClass nc) {
-		String urlRestService = "http://localhost:1880/EnviarTelegram";
+		String urlRestService = "http://192.168.1.10:1880/EnviarTelegram";
 		Client client = ClientBuilder.newBuilder().build();
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -59,7 +59,7 @@ public class RESTClient {
 	}
 	
 	public static boolean sendToNodeMail(NodeClass nc) {
-		String urlRestService = "http://localhost:1880/EnviarCorreo";
+		String urlRestService = "http://192.168.1.10:1880/EnviarCorreo";
 		Client client = ClientBuilder.newBuilder().build();
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -74,7 +74,7 @@ public class RESTClient {
 	}
 
 	public static boolean sendToNodeDataBase(RecordDTO rDto) {
-		String urlRestService = "http://localhost:1880/GuardarDatos";
+		String urlRestService = "http://192.168.1.10:1880/GuardarDatos";
 		Client client = ClientBuilder.newBuilder().build();
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -89,7 +89,7 @@ public class RESTClient {
 	}
 	
 	public static boolean checkIfInvasive(AnimalIsInvasor aii) {
-		String urlRestService = "http://localhost:1880/esInvasor";
+		String urlRestService = "http://192.168.1.10:1880/esInvasor";
 		Client client = ClientBuilder.newBuilder().build();
 		WebTarget target = client.target(urlRestService);
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
